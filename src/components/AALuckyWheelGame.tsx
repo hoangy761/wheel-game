@@ -1,7 +1,7 @@
 "use client";
 
 import {useState, useEffect, useRef} from "react";
-import {ArrowBigDown, Loader2, RotateCw, LogOut} from "lucide-react";
+import {ArrowBigDown, Loader2, RotateCw, LogOut, Copy} from "lucide-react";
 import {WheelSegment, TransactionState, GameResult} from "@/types/game";
 import Login from "@/components/Login";
 import TransactionStatus from "@/components/TransactionStatus";
@@ -336,6 +336,13 @@ const LuckyWheelGame = () => {
       </div>
     );
   }
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "Wallet address copied to clipboard",
+    });
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
@@ -359,6 +366,12 @@ const LuckyWheelGame = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleCopy(user?.walletAddress || "No wallet connected")}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Copy size={16} />
+              </button>
               <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
                 {user?.walletAddress
                   ? `Wallet: ${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`
