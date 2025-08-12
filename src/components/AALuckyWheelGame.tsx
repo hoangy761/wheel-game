@@ -353,7 +353,7 @@ const LuckyWheelGame = () => {
           <div className="mb-6 text-center">
             <h2 className="text-xl font-bold">Lucky Wheel Game</h2>
             <p className="text-gray-600 mt-2">
-              Spin the wheel to win G token prizes! All transactions secured on-chain using Account Abstraction.
+              1111Spin the wheel to win G token prizes! All transactions secured on-chain using Account Abstraction.
             </p>
           </div>
 
