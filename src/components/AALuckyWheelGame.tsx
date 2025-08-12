@@ -373,9 +373,7 @@ const LuckyWheelGame = () => {
                 <Copy size={16} />
               </button>
               <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                {user?.walletAddress
-                  ? `Wallet: ${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`
-                  : "Wallet connected"}
+                {user?.walletAddress ? `Wallet: ${user.walletAddress}` : "Wallet connected"}
               </span>
               <button
                 onClick={logout}
