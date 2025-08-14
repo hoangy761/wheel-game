@@ -8,13 +8,7 @@ import TransactionStatus from "@/components/TransactionStatus";
 import ResultDisplay from "@/components/ResultDisplay";
 import {useToast} from "./ui/toast";
 import {useAuth} from "@/hooks/useAuth";
-import {
-  API_KEY,
-  BUNDLER_ENDPOINT,
-  LUCKY_WHEEL_CONTRACT,
-  LUCKY_WHEEL_CONTRACT_A8_TESTNET,
-  SECRET_KEY,
-} from "@/constants/constant";
+import {API_KEY, BUNDLER_ENDPOINT, LUCKY_WHEEL_CONTRACT, LUCKY_WHEEL_CONTRACT_A8_TESTNET} from "@/constants/constant";
 import {buildContractCallRequest} from "@layerg-ua-sdk/aa-sdk";
 import {WHEEL_ABI} from "@/constants/abis";
 import {decodeSpinCompletedEvent} from "@/utils/logs";
@@ -94,7 +88,6 @@ const LuckyWheelGame = () => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
         "x-api-key": API_KEY,
-        "x-secret-key": SECRET_KEY,
       },
       body: JSON.stringify(TEST_TRANSACTION),
     });
