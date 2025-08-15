@@ -6,7 +6,8 @@ export interface WheelSegment {
 
 export interface TransactionState {
   isSuccess: boolean;
-  status: string;
+  status: "pending" | "success" | "failed" | null;
+  message: string;
   hash: string | null;
   error: string | null;
 }

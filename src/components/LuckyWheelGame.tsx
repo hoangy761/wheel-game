@@ -14,6 +14,7 @@ import {WHEEL_ABI} from "@/constants/abis";
 import {decodeSpinCompletedEvent} from "@/utils/logs";
 import EoaSignMessage from "./EoaSignMessage";
 import {waitForEoaTransactionReceipt} from "@/utils/eoaTransactionReceipt";
+import {checkAuth} from "@/utils/check-auth";
 
 const LuckyWheelGame = () => {
   const {isAuthenticated, user, isLoading: authLoading, logout} = useAuth();
@@ -23,7 +24,8 @@ const LuckyWheelGame = () => {
   const [loading, setLoading] = useState(false);
   const [transactionState, setTransactionState] = useState<TransactionState>({
     isSuccess: false,
-    status: "",
+    status: null,
+    message: "",
     hash: null,
     error: null,
   });
@@ -56,123 +58,142 @@ const LuckyWheelGame = () => {
     setLoading(true);
     setTransactionState({
       isSuccess: false,
-      status: "Initiating smart contract transaction...",
+      status: "pending",
+      message: "Initiating smart contract transaction...",
       hash: null,
       error: null,
     });
+    try {
+      const wheel_contract = chainId === 2484 ? LUCKY_WHEEL_CONTRACT : LUCKY_WHEEL_CONTRACT_A8_TESTNET;
 
-    const wheel_contract = chainId === 2484 ? LUCKY_WHEEL_CONTRACT : LUCKY_WHEEL_CONTRACT_A8_TESTNET;
+      const txRequest = buildContractCallRequest({
+        sender: user.walletAddress || "0x0000000000000000000000000000000000000000",
+        contractAddress: wheel_contract,
+        abi: WHEEL_ABI,
+        method: "spin",
+        params: [],
+      });
 
-    const txRequest = buildContractCallRequest({
-      sender: user.walletAddress || "0x0000000000000000000000000000000000000000",
-      contractAddress: wheel_contract,
-      abi: WHEEL_ABI,
-      method: "spin",
-      params: [],
-    });
-
-    const TEST_TRANSACTION = {
-      chainId: chainId,
-      transactionReq: {
-        to: txRequest.to,
-        value: "0",
-        gasLimit: "600000",
-        data: txRequest.data,
-        maxPriorityFeePerGas: "1000000000", // Lower gas price for testing
-        maxFeePerGas: "1200000000", // Lower gas price for testing
-      },
-    };
-    const response = await fetch(`${BUNDLER_ENDPOINT}eoa-wallet/sign-and-send-transaction`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-        "x-api-key": API_KEY,
-      },
-      body: JSON.stringify(TEST_TRANSACTION),
-    });
-    const txData = await response.json();
-    if (!response.ok) {
+      const TEST_TRANSACTION = {
+        chainId: chainId,
+        transactionReq: {
+          to: txRequest.to,
+          value: "0",
+          gasLimit: "600000",
+          data: txRequest.data,
+          maxPriorityFeePerGas: "1000000000", // Lower gas price for testing
+          maxFeePerGas: "1200000000", // Lower gas price for testing
+        },
+      };
+      const response = await fetch(`${BUNDLER_ENDPOINT}eoa-wallet/sign-and-send-transaction`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(TEST_TRANSACTION),
+      });
+      const txData = await response.json();
+      if (!txData.success) {
+        checkAuth(txData.statusCode, logout);
+        toast({
+          title: `Transaction failed: ${txData.error}`,
+          description: txData.error || "Transaction failed",
+        });
+        setTransactionState({
+          isSuccess: false,
+          status: "failed",
+          message: `Transaction failed: ${txData.error}`,
+          hash: txData.data.transactionId || null,
+          error: null,
+        });
+        return;
+      }
+      console.log("txData::", txData);
       setTransactionState({
         isSuccess: false,
-        status: "Transaction failed",
+        status: "pending",
+        message: "Transaction bundled with EOA Wallet, executing...",
         hash: txData.data.transactionId || null,
         error: null,
       });
-      return;
-    }
-    console.log("txData::", txData);
-    setTransactionState({
-      isSuccess: false,
-      status: "Transaction bundled with EOA Wallet, executing...",
-      hash: txData.data.transactionId || null,
-      error: null,
-    });
 
-    // Simulate blockchain confirmation
-    // In a real implementation, you'd poll for transaction status
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Simulate blockchain confirmation
+      // In a real implementation, you'd poll for transaction status
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    setTransactionState({
-      isSuccess: false,
-      status: "Transaction confirmed on-chain!",
-      hash: txData.data.transactionId,
-      error: null,
-    });
-
-    setSpinning(true);
-    setLoading(false);
-    if (!txData.data.transaction_id) {
-      alert("Transaction ID not found");
-      return;
-    }
-
-    const receipt = await waitForEoaTransactionReceipt(txData.data.transaction_id);
-    if (!receipt) {
-      alert("Transaction receipt not found");
-    }
-    console.log("receipt::", receipt);
-
-    const spinResult = decodeSpinCompletedEvent(receipt, wheel_contract);
-
-    // // Calculate spin result
-    // // In a real implementation, this would come from the transaction result
-    const randomDegrees = txData.degrees || 1800 + Math.random() * 1800;
-
-    console.log("randomDegrees: ", randomDegrees);
-
-    // Calculate the winning segment
-    const segmentSize = 360 / segments.length;
-    const winningSegmentIndex = Number(spinResult.segment);
-    const winningSegment = segments[winningSegmentIndex]; // Use the correct index directly
-
-    const baseDegrees = 1800; // Minimum 5 full rotations
-    const segmentOffset = segmentSize * (segments.length - 1 - winningSegmentIndex);
-    const randomOffset = Math.random() * (segmentSize * 0.8); // Random position within the segment
-    const finalDegrees = baseDegrees + segmentOffset + randomOffset;
-
-    // Animate the wheel
-    if (wheelRef.current) {
-      wheelRef.current.style.transition = "transform 5s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
-      wheelRef.current.style.transform = `rotate(${finalDegrees}deg)`;
-    }
-    // Set the result after the spin animation finishes
-    setTimeout(async () => {
-      // Set the result in your state
-      setResult({
-        segment: winningSegment,
-        transactionHash: transactionState.hash || "",
-      });
-
-      // Update UI states
-      setSpinning(false);
       setTransactionState({
-        isSuccess: true,
-        status: "Transaction complete!",
-        hash: transactionState.hash,
+        isSuccess: false,
+        status: "success",
+        message: "Transaction confirmed on-chain!",
+        hash: txData.data.transactionId,
         error: null,
       });
-    }, 5000);
+
+      setSpinning(true);
+      setLoading(false);
+      if (!txData.data.transaction_id) {
+        alert("Transaction ID not found");
+        return;
+      }
+
+      const receipt = await waitForEoaTransactionReceipt(txData.data.transaction_id);
+      if (!receipt) {
+        alert("Transaction receipt not found");
+      }
+      console.log("receipt::", receipt);
+
+      const spinResult = decodeSpinCompletedEvent(receipt, wheel_contract);
+
+      // // Calculate spin result
+      // // In a real implementation, this would come from the transaction result
+      const randomDegrees = txData.degrees || 1800 + Math.random() * 1800;
+
+      console.log("randomDegrees: ", randomDegrees);
+
+      // Calculate the winning segment
+      const segmentSize = 360 / segments.length;
+      const winningSegmentIndex = Number(spinResult.segment);
+      const winningSegment = segments[winningSegmentIndex]; // Use the correct index directly
+
+      const baseDegrees = 1800; // Minimum 5 full rotations
+      const segmentOffset = segmentSize * (segments.length - 1 - winningSegmentIndex);
+      const randomOffset = Math.random() * (segmentSize * 0.8); // Random position within the segment
+      const finalDegrees = baseDegrees + segmentOffset + randomOffset;
+
+      // Animate the wheel
+      if (wheelRef.current) {
+        wheelRef.current.style.transition = "transform 5s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
+        wheelRef.current.style.transform = `rotate(${finalDegrees}deg)`;
+      }
+      // Set the result after the spin animation finishes
+      setTimeout(async () => {
+        // Set the result in your state
+        setResult({
+          segment: winningSegment,
+          transactionHash: transactionState.hash || "",
+        });
+
+        // Update UI states
+        setSpinning(false);
+        setTransactionState({
+          isSuccess: true,
+          status: "success",
+          message: "Transaction complete!",
+          hash: transactionState.hash,
+          error: null,
+        });
+      }, 5000);
+    } catch (error) {
+      console.log("error", error);
+      toast({
+        title: "Transaction failed",
+        description: (error as Error).message || "Transaction failed",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetGame = () => {
